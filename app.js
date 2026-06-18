@@ -259,7 +259,11 @@ const DEFAULT_BLOCKS = [
 ];
 let blocks = [...DEFAULT_BLOCKS];
 
-const DAY_W = 14; // px per day
+let DAY_W = window.innerWidth <= 768 ? 7 : 14; // px per day (responsive)
+window.addEventListener('resize', () => {
+  const newW = window.innerWidth <= 768 ? 7 : 14;
+  if (newW !== DAY_W) { DAY_W = newW; renderTimeline(); renderCalendar(); }
+});
 
 function parseDate(s) { return new Date(s + 'T00:00:00'); }
 function fmtDate(d) { return d.toISOString().slice(0, 10); }

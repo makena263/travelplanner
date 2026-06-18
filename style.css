@@ -1546,8 +1546,8 @@ body.owner-unlocked .gallery-del { display: flex !important; }
   .timeline-controls { flex-wrap: wrap; gap: 10px; }
   .control-group input { width: 140px; }
   .timeline-track { height: 140px; }
-  .country-block { height: 64px; font-size: 0.78rem; }
-  .block-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+  .country-block { height: 72px; font-size: 0.72rem; padding: 4px 3px; }
+  .block-name { white-space: normal; overflow: hidden; font-weight: 600; line-height: 1.2; word-break: break-word; }
   .block-dates { display: none; }
 
   /* Hero section */
