@@ -1532,10 +1532,17 @@ function renderCarousel() {
   if (carouselIdx >= photos.length) carouselIdx = 0;
 
   track.innerHTML = photos.map((src, i) =>
-    `<div class="carousel-slide ${i === carouselIdx ? 'active' : ''}" style="background-image:url('${src}')">
+    `<div class="carousel-slide ${i === carouselIdx ? 'active' : ''}" style="background-image:url('${src}')" data-i="${i}">
       ${personalUnlocked ? `<button class="carousel-del-btn" data-i="${i}">×</button>` : ''}
     </div>`
   ).join('');
+
+  track.querySelectorAll('.carousel-slide').forEach(slide => {
+    slide.addEventListener('click', e => {
+      if (e.target.classList.contains('carousel-del-btn')) return;
+      openLightbox(photos, parseInt(slide.dataset.i));
+    });
+  });
 
   dots.innerHTML = photos.map((_, i) =>
     `<button class="carousel-dot ${i === carouselIdx ? 'active' : ''}" data-i="${i}"></button>`

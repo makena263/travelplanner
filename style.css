@@ -910,6 +910,7 @@ textarea { resize: vertical; }
   transition: opacity 0.5s ease;
   position: relative;
   display: none;
+  cursor: zoom-in;
 }
 .carousel-slide.active { display: block; }
 .carousel-del-btn {
