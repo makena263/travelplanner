@@ -126,7 +126,7 @@ const store = {
 };
 
 // ─── Navigation ─────────────────────────────────────────────────────────────
-document.querySelectorAll('.nav-link, .nav-dropdown-item').forEach(link => {
+document.querySelectorAll('.nav-link, .nav-dropdown-item, #countriesGalleryBtn').forEach(link => {
   link.addEventListener('click', e => {
     e.preventDefault();
     const page = link.dataset.page;
