@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SEA Trip Planner</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+</head>
+<body>
+
+<!-- ENTRY GATE -->
+<div id="entryGate" class="entry-gate">
+  <div class="entry-box">
+    <div class="entry-logo">✈</div>
+    <h1 class="entry-title">SEA 2027</h1>
+    <p class="entry-sub">Makena's travel plans — enter your email or phone number to access</p>
+    <input type="text" id="entryInput" placeholder="email or phone number" autocomplete="off" autocorrect="off" autocapitalize="off">
+    <button class="btn btn-primary entry-btn" id="entrySubmit">Enter</button>
+    <p class="entry-error" id="entryError"></p>
+    <div class="entry-owner-wrap" id="entryOwnerWrap">
+      <button class="entry-owner-link" id="entryOwnerToggle">this is my site</button>
+      <div class="entry-owner-fields" id="entryOwnerFields" style="display:none">
+        <input type="password" id="entryOwnerPw" placeholder="your For Me password">
+        <button class="btn btn-ghost btn-sm" id="entryOwnerSubmit">Unlock as owner</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP (hidden until gate passes) -->
+<div id="appShell" style="display:none">
+<nav class="nav">
+  <div class="nav-logo">✈ SEA 2027</div>
+  <div class="nav-links">
+    <a href="#" class="nav-link active" data-page="timeline">Timeline</a>
+    <div class="nav-dropdown">
+      <a href="#" class="nav-link nav-dropdown-trigger" data-page="countries">Countries ▾</a>
+      <div class="nav-dropdown-menu">
+        <a href="#" class="nav-dropdown-item" data-page="countries">Overview</a>
+        <a href="#" class="nav-dropdown-item" data-page="gallery">Photo Gallery</a>
+      </div>
+    </div>
+    <a href="#" class="nav-link" data-page="places">Places</a>
+    <a href="#" class="nav-link nav-link-personal" data-page="personal">🔒 For Me</a>
+  </div>
+</nav>
+
+<!-- TIMELINE PAGE -->
+<div id="page-timeline" class="page active">
+  <div class="page-header">
+    <h1>Trip Overview</h1>
+    <p class="subtitle visitor-only">Click a country to see its places</p>
+    <p class="subtitle owner-only">Drag blocks to adjust dates · Click a country to see its places</p>
+  </div>
+
+  <div class="timeline-controls owner-only">
+    <div class="control-group">
+      <label>Trip Start</label>
+      <input type="date" id="tripStart" value="2027-01-15">
+    </div>
+    <div class="control-group">
+      <label>Trip End</label>
+      <input type="date" id="tripEnd" value="2027-04-15">
+    </div>
+    <button class="btn btn-primary" id="addCountryBtn">+ Add Country</button>
+  </div>
+
+  <div class="timeline-wrapper">
+    <div class="timeline-header" id="timelineHeader"></div>
+    <div class="timeline-track" id="timelineTrack">
+      <div class="timeline-grid" id="timelineGrid"></div>
+      <div class="timeline-blocks" id="timelineBlocks"></div>
+    </div>
+  </div>
+
+  <!-- Hero carousel + trip notes -->
+  <div class="hero-section">
+
+    <div class="carousel-wrap" id="carouselWrap">
+      
+      <div class="carousel-track" id="carouselTrack"></div>
+      <button class="carousel-btn carousel-prev" id="carouselPrev">‹</button>
+      <button class="carousel-btn carousel-next" id="carouselNext">›</button>
+      <div class="carousel-dots" id="carouselDots"></div>
+      <div class="carousel-empty" id="carouselEmpty">
+        <span>✈ your trip photos will go here</span>
+      </div>
+      <!-- Owner-only upload button -->
+      <label class="carousel-add-btn owner-only" id="carouselAddWrap" for="carouselUpload">+ Add Photo</label>
+      <input type="file" id="carouselUpload" accept="image/*" multiple style="display:none">
+    </div>
+
+    <div class="trip-notes-wrap">
+      <div class="trip-notes-header">
+        <h3 class="trip-notes-title">Trip Notes</h3>
+        <button class="trip-notes-edit-btn owner-only" id="tripNotesEditBtn">Edit</button>
+      </div>
+      <div class="trip-notes-display" id="tripNotesDisplay">
+        <p class="trip-notes-placeholder">Notes about the trip will appear here.</p>
+      </div>
+      <div class="trip-notes-editor" id="tripNotesEditor" style="display:none">
+        <textarea id="tripNotesTextarea" placeholder="Write anything — trip vibe, who's invited, rough plan..."></textarea>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary btn-sm" id="tripNotesSave">Save</button>
+          <button class="btn btn-ghost btn-sm" id="tripNotesCancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Country Modal -->
+  <div class="modal-overlay" id="addCountryModal" style="display:none">
+    <div class="modal">
+      <h3>Add Country</h3>
+      <div class="form-group">
+        <label>Country (type any country)</label>
+        <input type="text" id="newCountry" list="countryList" placeholder="e.g. Japan, India...">
+        <datalist id="countryList">
+          <option value="Thailand">
+          <option value="Vietnam">
+          <option value="Cambodia">
+          <option value="Laos">
+          <option value="Myanmar">
+          <option value="Indonesia">
+          <option value="Malaysia">
+          <option value="Philippines">
+          <option value="Singapore">
+          <option value="Japan">
+          <option value="South Korea">
+          <option value="China">
+          <option value="India">
+          <option value="Nepal">
+          <option value="Sri Lanka">
+          <option value="Taiwan">
+          <option value="Hong Kong">
+          <option value="Australia">
+          <option value="New Zealand">
+          <option value="United States">
+          <option value="Canada">
+          <option value="Mexico">
+          <option value="Portugal">
+          <option value="Spain">
+          <option value="Italy">
+          <option value="France">
+          <option value="Germany">
+          <option value="Netherlands">
+          <option value="Greece">
+          <option value="Morocco">
+          <option value="Turkey">
+          <option value="Egypt">
+          <option value="South Africa">
+          <option value="Brazil">
+          <option value="Argentina">
+          <option value="Colombia">
+          <option value="Peru">
+        </datalist>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Start Date</label>
+          <input type="date" id="newStart" value="2027-01-15">
+        </div>
+        <div class="form-group">
+          <label>End Date</label>
+          <input type="date" id="newEnd" value="2027-02-01">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="cancelCountry">Cancel</button>
+        <button class="btn btn-primary" id="confirmCountry">Add</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- COUNTRIES LIST PAGE -->
+<div id="page-countries" class="page">
+  <div class="page-header">
+    <h1>Countries</h1>
+    <p class="subtitle">Click a country to open its page</p>
+  </div>
+  <div class="countries-grid" id="countriesGrid"></div>
+  <div class="countries-calendar-header">
+    <h2>Trip Calendar</h2>
+    <p class="subtitle">Click any day to open that country's page</p>
+  </div>
+  <div class="calendar-section" id="calendarSection"></div>
+</div>
+
+<!-- COUNTRY DETAIL PAGE -->
+<div id="page-country" class="page">
+  <div class="country-page-header" id="countryPageHeader">
+    <button class="back-btn" id="backFromCountry">← Back</button>
+    <div class="country-page-title" id="countryPageTitle"></div>
+    <div class="country-page-dates" id="countryPageDates"></div>
+  </div>
+
+  <div class="country-page-tabs">
+    <button class="cpTab active" data-tab="cp-places">📍 Places</button>
+    <button class="cpTab" data-tab="cp-photos">📷 Photos</button>
+    <button class="cpTab" data-tab="cp-notes">📝 Notes</button>
+  </div>
+
+  <!-- Places tab -->
+  <div class="cp-panel active" id="cp-places">
+    <div class="cp-places-list" id="cpPlacesList"></div>
+    <button class="btn btn-primary cp-add-place-btn owner-only" id="cpAddPlaceBtn">+ Add Place</button>
+  </div>
+
+  <!-- Photos tab -->
+  <div class="cp-panel" id="cp-photos">
+    <div class="cp-photos-grid" id="cpPhotosGrid"></div>
+    <label class="btn btn-primary cp-upload-btn owner-only" for="cpPhotoUpload">+ Add Photos</label>
+    <input type="file" id="cpPhotoUpload" accept="image/*" multiple style="display:none">
+  </div>
+
+  <!-- Notes tab -->
+  <div class="cp-panel" id="cp-notes">
+    <div class="cp-notes-wrap">
+      <textarea id="cpNotesArea" placeholder="Write anything — tips, reminders, things you want to do, people to meet..."></textarea>
+      <button class="btn btn-primary" id="cpSaveNotes">Save Notes</button>
+      <span class="cp-notes-saved" id="cpNotesSaved"></span>
+    </div>
+  </div>
+</div>
+
+<!-- PHOTO GALLERY PAGE -->
+<div id="page-gallery" class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div>
+      <h1>Photo Gallery</h1>
+      <p class="subtitle">All trip photos in one place</p>
+    </div>
+    <label class="btn btn-primary owner-only" for="galleryUpload">+ Add Photos</label>
+    <input type="file" id="galleryUpload" accept="image/*" multiple style="display:none">
+  </div>
+
+  <div class="gallery-filters" id="galleryFilters">
+    <button class="gallery-filter-btn active" data-country="">All</button>
+  </div>
+
+  <div class="gallery-grid" id="galleryGrid"></div>
+
+  <!-- Upload modal: pick country tag -->
+  <div class="modal-overlay" id="galleryUploadModal" style="display:none">
+    <div class="modal">
+      <h3>Tag Photos</h3>
+      <p style="font-size:0.875rem;color:var(--text-muted)">Select a country to add these photos to. They'll appear here and on that country's page.</p>
+      <div class="form-group" style="margin-top:8px">
+        <label>Country</label>
+        <input type="text" id="galleryCountryTag" list="galleryCountryList" placeholder="e.g. Thailand">
+        <datalist id="galleryCountryList"></datalist>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="galleryUploadCancel">Cancel</button>
+        <button class="btn btn-primary" id="galleryUploadConfirm">Add to Gallery</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PLACES PAGE -->
+<div id="page-places" class="page">
+  <div class="page-header">
+    <h1>Saved Places</h1>
+    <p class="subtitle">Your curated list of places to visit</p>
+  </div>
+
+  <div class="places-top">
+    <div class="places-filters">
+      <select id="filterCountry">
+        <option value="">All Countries</option>
+      </select>
+      <select id="filterType">
+        <option value="">All Types</option>
+        <option value="temple">Temple / Culture</option>
+        <option value="nature">Nature / Outdoors</option>
+        <option value="food">Food & Drink</option>
+        <option value="beach">Beach / Island</option>
+        <option value="city">City / Urban</option>
+        <option value="adventure">Adventure / Sport</option>
+        <option value="accommodation">Accommodation</option>
+        <option value="other">Other</option>
+      </select>
+      <select id="filterCost">
+        <option value="">All Budgets</option>
+        <option value="free">Free</option>
+        <option value="$">$ Budget</option>
+        <option value="$$">$$ Mid-range</option>
+        <option value="$$$">$$$ Splurge</option>
+      </select>
+      <button class="btn btn-primary owner-only" id="addPlaceBtn">+ Add Place</button>
+    </div>
+    <div class="googlemaps-hint">
+      <span>💡 Export your Google Maps saved list as CSV and import below</span>
+      <label class="btn btn-ghost btn-sm owner-only" for="importCSV">Import CSV</label>
+      <input type="file" id="importCSV" accept=".csv" style="display:none">
+    </div>
+  </div>
+
+  <div class="places-layout">
+    <div class="places-list" id="placesList"></div>
+    <div class="map-container">
+      <div id="placesMap"></div>
+    </div>
+  </div>
+
+  <!-- Add Place Modal -->
+  <div class="modal-overlay" id="addPlaceModal" style="display:none">
+    <div class="modal">
+      <h3>Add Place</h3>
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="placeName" placeholder="e.g. Angkor Wat">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Country</label>
+          <input type="text" id="placeCountry" list="countryList2" placeholder="e.g. Thailand, Japan...">
+          <datalist id="countryList2">
+            <option value="Thailand"><option value="Vietnam"><option value="Cambodia">
+            <option value="Laos"><option value="Myanmar"><option value="Indonesia">
+            <option value="Malaysia"><option value="Philippines"><option value="Singapore">
+            <option value="Japan"><option value="South Korea"><option value="India">
+            <option value="Nepal"><option value="Sri Lanka"><option value="Taiwan">
+            <option value="Australia"><option value="New Zealand"><option value="Portugal">
+            <option value="Spain"><option value="Italy"><option value="Morocco">
+          </datalist>
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <select id="placeType">
+            <option value="temple">Temple / Culture</option>
+            <option value="nature">Nature / Outdoors</option>
+            <option value="food">Food & Drink</option>
+            <option value="beach">Beach / Island</option>
+            <option value="city">City / Urban</option>
+            <option value="adventure">Adventure / Sport</option>
+            <option value="accommodation">Accommodation</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Cost</label>
+          <select id="placeCost">
+            <option value="free">Free</option>
+            <option value="$">$ Budget</option>
+            <option value="$$">$$ Mid-range</option>
+            <option value="$$$">$$$ Splurge</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>City / Region</label>
+          <input type="text" id="placeCity" placeholder="e.g. Siem Reap">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Google Maps Link (optional)</label>
+        <input type="url" id="placeLink" placeholder="https://maps.google.com/...">
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea id="placeNotes" placeholder="Things to know, best time to visit..." rows="2"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="cancelPlace">Cancel</button>
+        <button class="btn btn-primary" id="confirmPlace">Save Place</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOR ME PAGE -->
+<div id="page-personal" class="page">
+
+  <!-- Lock screen overlay -->
+  <div id="personalLock" class="lock-screen">
+    <div class="lock-box">
+      <div class="lock-icon">🔒</div>
+      <h2 class="lock-title">For Me</h2>
+      <p class="lock-sub" id="lockSub">Your private space</p>
+      <input type="password" id="lockInput" placeholder="Enter password" autocomplete="current-password">
+      <button class="btn btn-primary lock-btn" id="lockSubmit">Unlock</button>
+      <p class="lock-error" id="lockError"></p>
+      <button class="lock-set-link" id="showSetPassword" style="display:none">Change password</button>
+    </div>
+  </div>
+
+  <!-- Personal content (shown after unlock) -->
+  <div id="personalContent" style="display:none">
+
+    <!-- Sub-nav -->
+    <div class="personal-subnav">
+      <button class="psnav-btn active" data-pspage="ps-dashboard">Dashboard</button>
+      <button class="psnav-btn" data-pspage="ps-budget">Budget</button>
+      <button class="psnav-btn" data-pspage="ps-packing">Packing</button>
+      <button class="psnav-btn" data-pspage="ps-outfits">Outfits</button>
+      <button class="psnav-btn psnav-lock" id="lockAgainBtn">🔒 Lock</button>
+    </div>
+
+    <!-- Dashboard sub-page -->
+    <div class="ps-page active" id="ps-dashboard">
+      <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <h1>For Me</h1>
+          <p class="subtitle">Your private dashboard</p>
+        </div>
+      </div>
+
+      <div class="ps-dash-stats">
+        <div class="stat-card stat-card-cad">
+          <div class="stat-label">Total Spent (CAD)</div>
+          <div class="stat-value" id="psDashTotal">CA$0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avg / Day (CAD)</div>
+          <div class="stat-value" id="psDashAvg">CA$0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Packing Progress</div>
+          <div class="stat-value" id="psDashPacking">0%</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Countries Planned</div>
+          <div class="stat-value" id="psDashCountries">0</div>
+        </div>
+      </div>
+
+      <div class="ps-links-section">
+        <div class="ps-links-header">
+          <h3>Quick Links</h3>
+          <button class="btn btn-ghost btn-sm" id="addLinkBtn">+ Add Link</button>
+        </div>
+        <div class="ps-links-grid" id="psLinksGrid"></div>
+      </div>
+
+      <div class="ps-access-section">
+        <div class="ps-links-header">
+          <h3>Access List</h3>
+          <button class="btn btn-ghost btn-sm" id="addAccessBtn">+ Add Manually</button>
+        </div>
+        <p class="ps-links-empty" style="margin-bottom:14px">Control who can enter the site with their email or phone number.</p>
+
+        <div class="sheet-connect">
+          <div class="sheet-connect-header">
+            <span class="sheet-connect-title">📊 Google Sheets (recommended)</span>
+            <span class="sheet-status" id="sheetStatus"></span>
+          </div>
+          <p class="sheet-connect-hint">
+            Make a sheet with columns <strong>Name</strong> and <strong>Email/Phone</strong>.
+            Then go <em>File → Share → Publish to web → Sheet1 → CSV</em> and paste the link below.
+            Update the sheet from your phone anytime — changes take effect within 5 minutes.
+          </p>
+          <div class="sheet-url-row">
+            <input type="url" id="sheetURL" placeholder="https://docs.google.com/spreadsheets/d/.../pub?...">
+            <button class="btn btn-primary btn-sm" id="saveSheetURL">Save</button>
+            <button class="btn btn-ghost btn-sm" id="testSheetURL">Test</button>
+          </div>
+          <div class="sheet-preview" id="sheetPreview"></div>
+        </div>
+
+        <div class="ps-links-header" style="margin-top:20px">
+          <span style="font-size:0.85rem;color:var(--text-muted);font-weight:600">MANUAL ENTRIES</span>
+        </div>
+        <div id="accessListGrid"></div>
+      </div>
+
+      <!-- Add access modal -->
+      <div class="modal-overlay" id="addAccessModal" style="display:none">
+        <div class="modal">
+          <h3>Add to Access List</h3>
+          <div class="form-group">
+            <label>Name (so you know who this is)</label>
+            <input type="text" id="accessName" placeholder="e.g. Sarah">
+          </div>
+          <div class="form-group">
+            <label>Email or Phone Number</label>
+            <input type="text" id="accessValue" placeholder="sarah@email.com or +16135550123">
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-ghost" id="cancelAccess">Cancel</button>
+            <button class="btn btn-primary" id="confirmAccess">Add</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add link modal -->
+      <div class="modal-overlay" id="addLinkModal" style="display:none">
+        <div class="modal">
+          <h3>Add Link</h3>
+          <div class="form-group">
+            <label>Label</label>
+            <input type="text" id="linkLabel" placeholder="e.g. Budget Spreadsheet">
+          </div>
+          <div class="form-group">
+            <label>URL</label>
+            <input type="url" id="linkUrl" placeholder="https://docs.google.com/...">
+          </div>
+          <div class="form-group">
+            <label>Icon (emoji)</label>
+            <input type="text" id="linkIcon" placeholder="📊" maxlength="2" value="🔗">
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-ghost" id="cancelLink">Cancel</button>
+            <button class="btn btn-primary" id="confirmLink">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Budget sub-page -->
+    <div class="ps-page" id="ps-budget">
+      <div class="page-header"><h1>Budget Tracker</h1><p class="subtitle">Private spend log</p></div>
+      <div class="budget-dashboard">
+        <div class="stat-card stat-card-cad">
+          <div class="stat-label">Total Spent (CAD)</div>
+          <div class="stat-value" id="statTotalCAD">CA$0</div>
+          <div class="stat-sublabel">All currencies converted</div>
+        </div>
+        <div class="stat-card"><div class="stat-label">Avg / Day (CAD)</div><div class="stat-value" id="statAvgDay">CA$0</div></div>
+        <div class="stat-card"><div class="stat-label">Days Tracked</div><div class="stat-value" id="statDays">0</div></div>
+        <div class="stat-card"><div class="stat-label">Countries</div><div class="stat-value" id="statCountries">0</div></div>
+      </div>
+      <div class="budget-country-breakdown" id="countryBreakdown"></div>
+      <div class="budget-add">
+        <h3>Log Expense</h3>
+        <div class="expense-form">
+          <input type="date" id="expDate">
+          <input type="text" id="expDesc" placeholder="Description">
+          <input type="text" id="expCountry" list="countryList3" placeholder="Country">
+          <datalist id="countryList3">
+            <option value="Thailand"><option value="Vietnam"><option value="Cambodia">
+            <option value="Laos"><option value="Myanmar"><option value="Indonesia">
+            <option value="Malaysia"><option value="Philippines"><option value="Singapore">
+            <option value="Japan"><option value="South Korea"><option value="India">
+            <option value="Australia"><option value="Canada"><option value="United States">
+          </datalist>
+          <select id="expCategory">
+            <option value="food">Food</option><option value="transport">Transport</option>
+            <option value="accommodation">Accommodation</option><option value="activities">Activities</option>
+            <option value="shopping">Shopping</option><option value="other">Other</option>
+          </select>
+          <input type="number" id="expAmount" placeholder="Amount" step="0.01" min="0">
+          <select id="expCurrency">
+            <option value="CAD">CAD 🇨🇦</option><option value="USD">USD 🇺🇸</option>
+            <option value="THB">THB 🇹🇭</option><option value="VND">VND 🇻🇳</option>
+            <option value="KHR">KHR 🇰🇭</option><option value="IDR">IDR 🇮🇩</option>
+            <option value="MYR">MYR 🇲🇾</option><option value="PHP">PHP 🇵🇭</option>
+            <option value="SGD">SGD 🇸🇬</option><option value="EUR">EUR 🇪🇺</option>
+            <option value="GBP">GBP 🇬🇧</option><option value="AUD">AUD 🇦🇺</option>
+            <option value="JPY">JPY 🇯🇵</option>
+          </select>
+          <button class="btn btn-primary" id="addExpense">+ Log</button>
+        </div>
+      </div>
+      <div class="expense-list" id="expenseList"></div>
+    </div>
+
+    <!-- Packing sub-page -->
+    <div class="ps-page" id="ps-packing">
+      <div class="page-header"><h1>Packing List</h1><p class="subtitle">Check things off as you pack</p></div>
+      <div class="packing-controls">
+        <div class="packing-add">
+          <input type="text" id="newItemText" placeholder="Add item...">
+          <select id="newItemCategory">
+            <option value="clothing">Clothing</option><option value="toiletries">Toiletries</option>
+            <option value="electronics">Electronics</option><option value="documents">Documents</option>
+            <option value="health">Health / Meds</option><option value="gear">Gear / Outdoor</option>
+            <option value="misc">Misc</option>
+          </select>
+          <button class="btn btn-primary" id="addPackingItem">+ Add</button>
+        </div>
+        <div class="packing-progress">
+          <div class="progress-bar-wrapper"><div class="progress-bar" id="progressBar"></div></div>
+          <span id="progressText">0 / 0 packed</span>
+        </div>
+      </div>
+      <div class="packing-categories" id="packingCategories"></div>
+    </div>
+
+    <!-- Outfits sub-page -->
+    <div class="ps-page" id="ps-outfits">
+      <div class="page-header"><h1>Outfit Planner</h1><p class="subtitle">Mix & match your travel wardrobe</p></div>
+      <div class="outfits-layout">
+        <div class="outfit-builder">
+          <h3>Current Outfit</h3>
+          <div class="mannequin">
+            <div class="outfit-slot" id="slot-hat"><div class="slot-img-wrap" id="hatDisplay"><span class="slot-empty">Hat / Head</span></div><div class="slot-nav"><button class="slot-btn" data-slot="hat" data-dir="-1">‹</button><button class="slot-btn" data-slot="hat" data-dir="1">›</button></div></div>
+            <div class="outfit-slot" id="slot-top"><div class="slot-img-wrap" id="topDisplay"><span class="slot-empty">Top</span></div><div class="slot-nav"><button class="slot-btn" data-slot="top" data-dir="-1">‹</button><button class="slot-btn" data-slot="top" data-dir="1">›</button></div></div>
+            <div class="outfit-slot" id="slot-bottom"><div class="slot-img-wrap" id="bottomDisplay"><span class="slot-empty">Bottom</span></div><div class="slot-nav"><button class="slot-btn" data-slot="bottom" data-dir="-1">‹</button><button class="slot-btn" data-slot="bottom" data-dir="1">›</button></div></div>
+            <div class="outfit-slot" id="slot-shoes"><div class="slot-img-wrap" id="shoesDisplay"><span class="slot-empty">Shoes</span></div><div class="slot-nav"><button class="slot-btn" data-slot="shoes" data-dir="-1">‹</button><button class="slot-btn" data-slot="shoes" data-dir="1">›</button></div></div>
+            <div class="outfit-slot" id="slot-bag"><div class="slot-img-wrap" id="bagDisplay"><span class="slot-empty">Bag / Accessories</span></div><div class="slot-nav"><button class="slot-btn" data-slot="bag" data-dir="-1">‹</button><button class="slot-btn" data-slot="bag" data-dir="1">›</button></div></div>
+          </div>
+          <button class="btn btn-primary" id="saveOutfit">Save This Outfit</button>
+        </div>
+        <div class="outfit-wardrobe">
+          <div class="wardrobe-tabs">
+            <button class="tab-btn active" data-slot="hat">Hats</button>
+            <button class="tab-btn" data-slot="top">Tops</button>
+            <button class="tab-btn" data-slot="bottom">Bottoms</button>
+            <button class="tab-btn" data-slot="shoes">Shoes</button>
+            <button class="tab-btn" data-slot="bag">Bags</button>
+          </div>
+          <div class="wardrobe-grid" id="wardrobeGrid"></div>
+          <label class="btn btn-ghost upload-btn" for="uploadClothing">+ Upload PNG</label>
+          <input type="file" id="uploadClothing" accept="image/png,image/jpeg,image/webp" style="display:none">
+        </div>
+      </div>
+      <div class="saved-outfits" id="savedOutfitsSection">
+        <h3>Saved Outfits</h3>
+        <div class="saved-outfits-grid" id="savedOutfitsGrid"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</div><!-- /appShell -->
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
