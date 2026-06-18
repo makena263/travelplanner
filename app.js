@@ -8,6 +8,49 @@ async function sha256(str) {
 // Default sheet URL — always used as fallback even before For Me is configured
 const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ1h9uuaolW1iVGo9fTIrksOQEX5Vq714yBRnC4ZSKcd6NTGZudGK_yXAn-P_J8o6gAARWpJFpFYXz3/pub?gid=0&single=true&output=csv';
 
+// ─── Owner password (hardcoded so it's the same on every device) ─────────────
+// SHA-256 of the owner password. To change: run sha256('newpassword') in the
+// browser console and replace the string below.
+const OWNER_PW_HASH = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4'; // "1234"
+
+// ─── Firebase + Firestore ────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyCixkin0UA2JVD6Am2YNB4WFGjXiPePjn4",
+  authDomain: "sea-travel-planner.firebaseapp.com",
+  projectId: "sea-travel-planner",
+  storageBucket: "sea-travel-planner.firebasestorage.app",
+  messagingSenderId: "467711297731",
+  appId: "1:467711297731:web:7d6d48c1495409c69b7a76",
+  measurementId: "G-804FFW1THN"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const storage = firebase.storage();
+
+async function uploadPhoto(file, folder) {
+  const safeName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+  const ref = storage.ref(`${folder}/${Date.now()}_${safeName}`);
+  await ref.put(file);
+  return ref.getDownloadURL();
+}
+
+// ─── Storage ─────────────────────────────────────────────────────────────────
+// _cache holds all synced data in memory; photos stay in localStorage (too large for Firestore)
+const _cache = {};
+
+const store = {
+  get: (k, def) => {
+    if (_cache[k] !== undefined) return _cache[k];
+    try { return JSON.parse(localStorage.getItem('sea_' + k)) ?? def; } catch { return def; }
+  },
+  set: (k, v) => {
+    _cache[k] = v;
+    // Mirror access list to localStorage so the entry gate can read it without waiting for Firestore
+    if (k === 'accessList') localStorage.setItem('sea_accessList', JSON.stringify(v));
+    db.collection('tripdata').doc('main').set({ [k]: JSON.stringify(v) }, { merge: true }).catch(console.error);
+  }
+};
+
 (function initGate() {
   if (sessionStorage.getItem('sea_access') === 'granted') {
     document.getElementById('entryGate').style.display = 'none';
@@ -28,7 +71,7 @@ const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ1h9
   }
 
   async function fetchSheetList() {
-    const url = localStorage.getItem('sea_sheetURL') || DEFAULT_SHEET_URL;
+    const url = store.get('sheetURL', DEFAULT_SHEET_URL) || DEFAULT_SHEET_URL;
     if (!url) return [];
     const cached = localStorage.getItem('sea_sheetCache');
     const cachedAt = parseInt(localStorage.getItem('sea_sheetCachedAt') || '0');
@@ -93,16 +136,8 @@ const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ1h9
   async function ownerUnlock() {
     const pw = document.getElementById('entryOwnerPw').value;
     if (!pw) return;
-    const storedHash = localStorage.getItem('sea_pw_hash');
-    if (!storedHash) {
-      // No password set yet — first time owner, let them straight in
-      sessionStorage.setItem('sea_access', 'granted');
-      document.getElementById('entryGate').style.display = 'none';
-      document.getElementById('appShell').style.display = 'block';
-      return;
-    }
     const entered = await sha256(pw);
-    if (entered === storedHash) {
+    if (entered === OWNER_PW_HASH) {
       sessionStorage.setItem('sea_access', 'granted');
       document.getElementById('entryGate').style.display = 'none';
       document.getElementById('appShell').style.display = 'block';
@@ -119,11 +154,7 @@ const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ1h9
   });
 })();
 
-// ─── Storage helpers ────────────────────────────────────────────────────────
-const store = {
-  get: (k, def) => { try { return JSON.parse(localStorage.getItem('sea_' + k)) ?? def; } catch { return def; } },
-  set: (k, v) => localStorage.setItem('sea_' + k, JSON.stringify(v)),
-};
+// (store defined above, before the entry gate)
 
 // ─── Navigation ─────────────────────────────────────────────────────────────
 document.querySelectorAll('.nav-link, .nav-dropdown-item, #countriesGalleryBtn').forEach(link => {
@@ -133,6 +164,21 @@ document.querySelectorAll('.nav-link, .nav-dropdown-item, #countriesGalleryBtn')
     navigateTo(page);
     if (page === 'countries') { renderCountriesList(); renderCalendar(); }
     if (page === 'gallery') renderGallery();
+  });
+});
+
+// Hamburger menu
+const hamburger = document.getElementById('navHamburger');
+const navLinks = document.getElementById('navLinks');
+hamburger.addEventListener('click', () => {
+  navLinks.classList.toggle('mobile-open');
+  hamburger.classList.toggle('open');
+});
+// Close mobile nav on any link click
+document.querySelectorAll('.nav-link, .nav-dropdown-item, #countriesGalleryBtn').forEach(l => {
+  l.addEventListener('click', () => {
+    navLinks.classList.remove('mobile-open');
+    hamburger.classList.remove('open');
   });
 });
 
@@ -201,11 +247,12 @@ const TYPE_ICONS = {
 // ═══════════════════════════════════════════════════════════════════════════
 // TIMELINE
 // ═══════════════════════════════════════════════════════════════════════════
-let blocks = store.get('blocks', [
+const DEFAULT_BLOCKS = [
   { id: 1, country: 'Thailand', start: '2027-01-15', end: '2027-02-10' },
   { id: 2, country: 'Cambodia', start: '2027-02-10', end: '2027-02-24' },
   { id: 3, country: 'Vietnam', start: '2027-02-24', end: '2027-04-01' },
-]);
+];
+let blocks = [...DEFAULT_BLOCKS];
 
 const DAY_W = 14; // px per day
 
@@ -399,8 +446,14 @@ document.getElementById('confirmCountry').addEventListener('click', () => {
   renderCalendar();
 });
 
-document.getElementById('tripStart').addEventListener('change', () => { renderTimeline(); renderCalendar(); });
-document.getElementById('tripEnd').addEventListener('change', () => { renderTimeline(); renderCalendar(); });
+document.getElementById('tripStart').addEventListener('change', () => {
+  store.set('tripStart', document.getElementById('tripStart').value);
+  renderTimeline(); renderCalendar();
+});
+document.getElementById('tripEnd').addEventListener('change', () => {
+  store.set('tripEnd', document.getElementById('tripEnd').value);
+  renderTimeline(); renderCalendar();
+});
 
 // ─── Calendar ────────────────────────────────────────────────────────────────
 // Assign stable colors to each block id (cycles through palette)
@@ -609,21 +662,16 @@ function renderCpPhotos(country) {
   }
 }
 
-document.getElementById('cpPhotoUpload').addEventListener('change', e => {
+document.getElementById('cpPhotoUpload').addEventListener('change', async e => {
   const files = Array.from(e.target.files);
   const country = currentCountryPage;
-  let loaded = 0;
-  files.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const photos = store.get('photos_' + country, []);
-      photos.push(ev.target.result);
-      store.set('photos_' + country, photos);
-      loaded++;
-      if (loaded === files.length) renderCpPhotos(country);
-    };
-    reader.readAsDataURL(file);
-  });
+  for (const file of files) {
+    const url = await uploadPhoto(file, `photos/${country}`);
+    const photos = store.get('photos_' + country, []);
+    photos.push(url);
+    store.set('photos_' + country, photos);
+  }
+  renderCpPhotos(country);
   e.target.value = '';
 });
 
@@ -873,40 +921,23 @@ document.getElementById('importCSV').addEventListener('change', e => {
 // ═══════════════════════════════════════════════════════════════════════════
 // PERSONAL / LOCK
 // ═══════════════════════════════════════════════════════════════════════════
-const HASH_KEY = 'sea_pw_hash';
 let personalUnlocked = false;
 
 async function initLock() {
-  const hash = localStorage.getItem(HASH_KEY);
-  if (!hash) {
-    // First time — prompt to set a password
-    document.getElementById('lockSub').textContent = 'Set a password to protect this section';
-    document.getElementById('lockSubmit').textContent = 'Set Password';
-    document.getElementById('lockInput').placeholder = 'Choose a password';
-  } else {
-    document.getElementById('lockSub').textContent = 'Your private space';
-    document.getElementById('lockSubmit').textContent = 'Unlock';
-    document.getElementById('showSetPassword').style.display = 'inline';
-  }
+  document.getElementById('lockSub').textContent = 'Your private space';
+  document.getElementById('lockSubmit').textContent = 'Unlock';
 }
 
 document.getElementById('lockSubmit').addEventListener('click', async () => {
   const val = document.getElementById('lockInput').value;
   if (!val) return;
-  const hash = localStorage.getItem(HASH_KEY);
-  if (!hash) {
-    // Setting password for first time
-    localStorage.setItem(HASH_KEY, await sha256(val));
+  const entered = await sha256(val);
+  if (entered === OWNER_PW_HASH) {
     unlockPersonal();
   } else {
-    const entered = await sha256(val);
-    if (entered === hash) {
-      unlockPersonal();
-    } else {
-      document.getElementById('lockError').textContent = 'Wrong password';
-      document.getElementById('lockInput').value = '';
-      setTimeout(() => document.getElementById('lockError').textContent = '', 2500);
-    }
+    document.getElementById('lockError').textContent = 'Wrong password';
+    document.getElementById('lockInput').value = '';
+    setTimeout(() => document.getElementById('lockError').textContent = '', 2500);
   }
 });
 
@@ -914,13 +945,8 @@ document.getElementById('lockInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') document.getElementById('lockSubmit').click();
 });
 
-document.getElementById('showSetPassword').addEventListener('click', async () => {
-  const newPw = prompt('Enter new password:');
-  if (!newPw) return;
-  const confirm = prompt('Confirm new password:');
-  if (newPw !== confirm) { alert('Passwords don\'t match.'); return; }
-  localStorage.setItem(HASH_KEY, await sha256(newPw));
-  alert('Password updated!');
+document.getElementById('showSetPassword').addEventListener('click', () => {
+  alert('To change the password, update OWNER_PW_HASH in app.js with the SHA-256 of your new password.');
 });
 
 function unlockPersonal() {
@@ -1030,7 +1056,7 @@ document.getElementById('confirmLink').addEventListener('click', () => {
 
 // ── Google Sheets connection ─────────────────────────────────────────────────
 function initSheetUI() {
-  const saved = localStorage.getItem('sea_sheetURL') || '';
+  const saved = store.get('sheetURL', '');
   document.getElementById('sheetURL').value = saved;
   if (saved) updateSheetStatus(saved);
 }
@@ -1086,7 +1112,7 @@ function updateSheetStatus(url) {
 
 document.getElementById('saveSheetURL').addEventListener('click', () => {
   const url = document.getElementById('sheetURL').value.trim();
-  localStorage.setItem('sea_sheetURL', url);
+  store.set('sheetURL', url);
   if (url) fetchAndPreviewSheet(url);
   else {
     document.getElementById('sheetStatus').textContent = 'Cleared';
@@ -1101,7 +1127,7 @@ document.getElementById('testSheetURL').addEventListener('click', () => {
 
 // ── Access list management ───────────────────────────────────────────────────
 function renderAccessList() {
-  const list = JSON.parse(localStorage.getItem('sea_accessList') || '[]');
+  const list = store.get('accessList', []);
   const grid = document.getElementById('accessListGrid');
   grid.innerHTML = '';
   if (!list.length) {
@@ -1117,9 +1143,9 @@ function renderAccessList() {
       <button class="access-del" data-i="${i}">×</button>
     `;
     row.querySelector('.access-del').addEventListener('click', () => {
-      const list = JSON.parse(localStorage.getItem('sea_accessList') || '[]');
+      const list = store.get('accessList', []);
       list.splice(i, 1);
-      localStorage.setItem('sea_accessList', JSON.stringify(list));
+      store.set('accessList', list);
       renderAccessList();
     });
     grid.appendChild(row);
@@ -1136,9 +1162,9 @@ document.getElementById('confirmAccess').addEventListener('click', () => {
   const name = document.getElementById('accessName').value.trim();
   const value = document.getElementById('accessValue').value.trim();
   if (!name || !value) return;
-  const list = JSON.parse(localStorage.getItem('sea_accessList') || '[]');
+  const list = store.get('accessList', []);
   list.push({ name, value });
-  localStorage.setItem('sea_accessList', JSON.stringify(list));
+  store.set('accessList', list);
   document.getElementById('addAccessModal').style.display = 'none';
   document.getElementById('accessName').value = '';
   document.getElementById('accessValue').value = '';
@@ -1418,20 +1444,17 @@ document.querySelectorAll('.slot-btn').forEach(btn => {
   });
 });
 
-document.getElementById('uploadClothing').addEventListener('change', e => {
+document.getElementById('uploadClothing').addEventListener('change', async e => {
   const file = e.target.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    const w = getWardrobe();
-    w[currentSlot] = w[currentSlot] || [];
-    w[currentSlot].push(ev.target.result);
-    store.set('wardrobe', w);
-    slotIndices[currentSlot] = w[currentSlot].length - 1;
-    updateOutfitDisplay();
-    renderWardrobeGrid();
-  };
-  reader.readAsDataURL(file);
+  const url = await uploadPhoto(file, `wardrobe/${currentSlot}`);
+  const w = getWardrobe();
+  w[currentSlot] = w[currentSlot] || [];
+  w[currentSlot].push(url);
+  store.set('wardrobe', w);
+  slotIndices[currentSlot] = w[currentSlot].length - 1;
+  updateOutfitDisplay();
+  renderWardrobeGrid();
   e.target.value = '';
 });
 
@@ -1537,6 +1560,22 @@ function renderCarousel() {
   }
 }
 
+// Touch swipe for carousel
+let touchStartX = 0;
+document.getElementById('carouselWrap').addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+}, { passive: true });
+document.getElementById('carouselWrap').addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  if (Math.abs(dx) < 40) return;
+  const photos = getCarouselPhotos();
+  if (!photos.length) return;
+  carouselIdx = dx < 0
+    ? (carouselIdx + 1) % photos.length
+    : (carouselIdx - 1 + photos.length) % photos.length;
+  renderCarousel();
+}, { passive: true });
+
 document.getElementById('carouselPrev').addEventListener('click', () => {
   const photos = getCarouselPhotos();
   carouselIdx = (carouselIdx - 1 + photos.length) % photos.length;
@@ -1548,20 +1587,16 @@ document.getElementById('carouselNext').addEventListener('click', () => {
   renderCarousel();
 });
 
-document.getElementById('carouselUpload').addEventListener('change', e => {
+document.getElementById('carouselUpload').addEventListener('change', async e => {
   const files = Array.from(e.target.files);
-  let loaded = 0;
-  files.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const photos = getCarouselPhotos();
-      photos.push(ev.target.result);
-      store.set('carouselPhotos', photos);
-      loaded++;
-      if (loaded === files.length) { carouselIdx = getCarouselPhotos().length - 1; renderCarousel(); }
-    };
-    reader.readAsDataURL(file);
-  });
+  for (const file of files) {
+    const url = await uploadPhoto(file, 'carousel');
+    const photos = getCarouselPhotos();
+    photos.push(url);
+    store.set('carouselPhotos', photos);
+  }
+  carouselIdx = getCarouselPhotos().length - 1;
+  renderCarousel();
   e.target.value = '';
 });
 
@@ -1706,34 +1741,71 @@ document.getElementById('galleryUploadCancel').addEventListener('click', () => {
   document.getElementById('galleryUploadModal').style.display = 'none';
 });
 
-document.getElementById('galleryUploadConfirm').addEventListener('click', () => {
+document.getElementById('galleryUploadConfirm').addEventListener('click', async () => {
   const country = document.getElementById('galleryCountryTag').value.trim();
   const key = country ? 'photos_' + country : 'photos_untagged';
-  let loaded = 0;
-  galleryPendingFiles.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const photos = store.get(key, []);
-      photos.push(ev.target.result);
-      store.set(key, photos);
-      loaded++;
-      if (loaded === galleryPendingFiles.length) {
-        galleryPendingFiles = [];
-        document.getElementById('galleryUploadModal').style.display = 'none';
-        renderGallery();
-        // Also update country page photos if it's currently open
-        if (country && currentCountryPage === country) renderCpPhotos(country);
-        // Update countries list cards
-        renderCountriesList();
-      }
-    };
-    reader.readAsDataURL(file);
-  });
+  const folder = country ? `photos/${country}` : 'photos/untagged';
+  for (const file of galleryPendingFiles) {
+    const url = await uploadPhoto(file, folder);
+    const photos = store.get(key, []);
+    photos.push(url);
+    store.set(key, photos);
+  }
+  galleryPendingFiles = [];
+  document.getElementById('galleryUploadModal').style.display = 'none';
+  renderGallery();
+  if (country && currentCountryPage === country) renderCpPhotos(country);
+  renderCountriesList();
 });
 
 // ─── Init ────────────────────────────────────────────────────────────────────
-renderTimeline();
-renderPlaces();
-renderCarousel();
-renderTripNotes();
+async function initApp() {
+  // Load all synced data from Firestore before first render
+  try {
+    const snap = await db.collection('tripdata').doc('main').get();
+    if (snap.exists) {
+      Object.entries(snap.data()).forEach(([k, v]) => {
+        try { _cache[k] = JSON.parse(v); } catch { _cache[k] = v; }
+      });
+      // Mirror access list to localStorage so the entry gate can read it
+      if (_cache.accessList) localStorage.setItem('sea_accessList', JSON.stringify(_cache.accessList));
+    }
+  } catch(e) { console.error('Firestore load failed:', e); }
+
+  // Apply loaded data
+  blocks = store.get('blocks', DEFAULT_BLOCKS);
+  document.getElementById('tripStart').value = store.get('tripStart', '2027-01-15');
+  document.getElementById('tripEnd').value = store.get('tripEnd', '2027-04-15');
+
+  renderTimeline();
+  renderCalendar();
+  renderPlaces();
+  renderCarousel();
+  renderTripNotes();
+
+  // Real-time listener — re-renders whenever any device makes a change
+  db.collection('tripdata').doc('main').onSnapshot(snap => {
+    if (!snap.exists) return;
+    Object.entries(snap.data()).forEach(([k, v]) => {
+      try { _cache[k] = JSON.parse(v); } catch { _cache[k] = v; }
+    });
+    if (_cache.accessList) localStorage.setItem('sea_accessList', JSON.stringify(_cache.accessList));
+
+    blocks = store.get('blocks', DEFAULT_BLOCKS);
+    document.getElementById('tripStart').value = store.get('tripStart', '2027-01-15');
+    document.getElementById('tripEnd').value = store.get('tripEnd', '2027-04-15');
+
+    renderTimeline();
+    renderCalendar();
+    renderPlaces();
+    renderCarousel();
+    renderTripNotes();
+    renderCountriesList();
+    renderGallery();
+    if (currentCountryPage) { renderCpPlaces(currentCountryPage); renderCpPhotos(currentCountryPage); renderCpNotes(currentCountryPage); }
+    if (personalUnlocked) { renderBudget(); renderPacking(); renderPsDashboard(); updateOutfitDisplay(); renderWardrobeGrid(); renderSavedOutfits(); }
+  });
+}
+
+initApp();
 // Budget / Packing / Outfits render on unlock inside unlockPersonal()
