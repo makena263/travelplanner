@@ -25,13 +25,18 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
-const storage = firebase.storage();
-
 async function uploadPhoto(file, folder) {
-  const safeName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
-  const ref = storage.ref(`${folder}/${Date.now()}_${safeName}`);
-  await ref.put(file);
-  return ref.getDownloadURL();
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', 'sea_trips');
+  formData.append('folder', 'sea/' + folder);
+  const res = await fetch('https://api.cloudinary.com/v1_1/dleyj8ti6/image/upload', {
+    method: 'POST',
+    body: formData,
+  });
+  const data = await res.json();
+  if (!data.secure_url) throw new Error('Cloudinary upload failed: ' + JSON.stringify(data));
+  return data.secure_url;
 }
 
 // ─── Storage ─────────────────────────────────────────────────────────────────
