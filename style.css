@@ -1545,10 +1545,10 @@ body.owner-unlocked .gallery-del { display: flex !important; }
   /* Timeline */
   .timeline-controls { flex-wrap: wrap; gap: 10px; }
   .control-group input { width: 140px; }
-  .timeline-track { height: 140px; }
-  .country-block { height: 72px; font-size: 0.72rem; padding: 4px 3px; }
+  .timeline-track { height: 160px; }
+  .country-block { height: 88px; font-size: 0.7rem; padding: 4px 3px; }
   .block-name { white-space: normal; overflow: hidden; font-weight: 600; line-height: 1.2; word-break: break-word; }
-  .block-dates { display: none; }
+  .block-dates { font-size: 0.6rem; white-space: normal; word-break: break-all; }
 
   /* Hero section */
   .carousel-wrap { height: 220px; }

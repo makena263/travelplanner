@@ -267,6 +267,7 @@ window.addEventListener('resize', () => {
 
 function parseDate(s) { return new Date(s + 'T00:00:00'); }
 function fmtDate(d) { return d.toISOString().slice(0, 10); }
+function fmtShort(s) { const d = parseDate(s); return d.toLocaleDateString('en', { month: 'short', day: 'numeric' }); }
 function daysBetween(a, b) { return Math.round((parseDate(b) - parseDate(a)) / 86400000); }
 function addDays(s, n) { const d = parseDate(s); d.setDate(d.getDate() + n); return fmtDate(d); }
 function dateToX(date, tripStart) { return daysBetween(tripStart, date) * DAY_W; }
@@ -335,7 +336,7 @@ function renderTimeline() {
     const inner = document.createElement('div');
     inner.className = 'country-block-inner';
     inner.innerHTML = `<span class="block-name">${COUNTRY_FLAGS[b.country] || ''} ${b.country}</span>
-      <span class="block-dates">${b.start} → ${b.end}</span>`;
+      <span class="block-dates">${fmtShort(b.start)} → ${fmtShort(b.end)}</span>`;
     el.appendChild(inner);
 
     const resizeHandle = document.createElement('div');
@@ -385,7 +386,7 @@ function makeDraggable(el, block, tripStart, totalDays) {
       const dur = daysBetween(block.start, block.end);
       block.start = addDays(tripStart, newDay);
       block.end = addDays(block.start, dur);
-      el.querySelector('.block-dates').textContent = `${block.start} → ${block.end}`;
+      el.querySelector('.block-dates').textContent = `${fmtShort(block.start)} → ${fmtShort(block.end)}`;
     };
 
     const onUp = () => {
@@ -416,7 +417,7 @@ function makeResizable(handle, el, block, tripStart, totalDays) {
       el.style.width = newW + 'px';
       const newDur = Math.round(newW / DAY_W);
       block.end = addDays(block.start, newDur);
-      el.querySelector('.block-dates').textContent = `${block.start} → ${block.end}`;
+      el.querySelector('.block-dates').textContent = `${fmtShort(block.start)} → ${fmtShort(block.end)}`;
     };
 
     const onUp = () => {
