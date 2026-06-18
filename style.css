@@ -1545,8 +1545,10 @@ body.owner-unlocked .gallery-del { display: flex !important; }
   /* Timeline */
   .timeline-controls { flex-wrap: wrap; gap: 10px; }
   .control-group input { width: 140px; }
-  .timeline-track { height: 120px; }
-  .country-block { height: 48px; font-size: 0.78rem; }
+  .timeline-track { height: 140px; }
+  .country-block { height: 64px; font-size: 0.78rem; }
+  .block-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+  .block-dates { display: none; }
 
   /* Hero section */
   .carousel-wrap { height: 220px; }
